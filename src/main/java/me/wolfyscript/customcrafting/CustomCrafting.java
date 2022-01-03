@@ -80,7 +80,7 @@ import java.util.logging.Level;
 public class CustomCrafting extends JavaPlugin {
 
     //Only used for displaying which version it is.
-    private static final boolean PREMIUM = true;
+    private static final boolean PREMIUM = false;
 
     public static final NamespacedKey ADVANCED_CRAFTING_TABLE = new NamespacedKey(NamespacedKeyUtils.NAMESPACE, "advanced_crafting_table");
     public static final NamespacedKey INTERNAL_ADVANCED_CRAFTING_TABLE = NamespacedKeyUtils.fromInternal(ADVANCED_CRAFTING_TABLE);
