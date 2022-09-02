@@ -22,14 +22,13 @@
 
 package me.wolfyscript.customcrafting.handlers;
 
-import me.wolfyscript.lib.com.fasterxml.jackson.core.JsonProcessingException;
 import me.wolfyscript.customcrafting.CustomCrafting;
 import me.wolfyscript.customcrafting.recipes.CustomRecipe;
 import me.wolfyscript.customcrafting.recipes.RecipeLoader;
 import me.wolfyscript.customcrafting.recipes.RecipeType;
 import me.wolfyscript.customcrafting.utils.ChatUtils;
 import me.wolfyscript.customcrafting.utils.NamespacedKeyUtils;
-import me.wolfyscript.lib.com.fasterxml.jackson.core.type.TypeReference;
+import me.wolfyscript.lib.com.fasterxml.jackson.core.JsonProcessingException;
 import me.wolfyscript.lib.com.fasterxml.jackson.databind.InjectableValues;
 import me.wolfyscript.utilities.api.inventory.custom_items.CustomItem;
 import me.wolfyscript.utilities.api.network.database.sql.SQLDataBase;
@@ -38,7 +37,6 @@ import me.wolfyscript.utilities.util.json.jackson.JacksonUtil;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Type;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -76,6 +74,9 @@ public class SQLDatabaseLoader extends DatabaseLoader {
         }
     }
 
+    /**
+     * Loads the data from the configured database.
+     */
     @Override
     public void load() {
         api.getConsole().info("- - - - [Database Storage] - - - -");
@@ -84,11 +85,21 @@ public class SQLDatabaseLoader extends DatabaseLoader {
         api.getConsole().info("");
     }
 
+    /**
+     * This does nothing when using the database, since the data is queried and updated
+     * when saving single recipes and items.
+     */
     @Override
     public void save() {
 
     }
 
+    /**
+     * Saves the specified recipe
+     *
+     * @param recipe The recipe to save
+     * @return true if the recipe was saved successfully; otherwise false.
+     */
     @Override
     public boolean save(CustomRecipe<?> recipe) {
         updateRecipe(recipe);
@@ -217,7 +228,7 @@ public class SQLDatabaseLoader extends DatabaseLoader {
                 String data = resultSet.getString("rData");
                 try {
                     if (typeID == null || typeID.isBlank()) {
-                        return objectMapper.reader(new InjectableValues.Std().addValue("key", namespacedKey)).readValue(data, CustomRecipe.class);
+                        return objectMapper.reader(new InjectableValues.Std().addValue("customcrafting", customCrafting).addValue("key", namespacedKey)).readValue(data, CustomRecipe.class);
                     }
                     RecipeLoader<?> loader = RecipeType.valueOf(typeID);
                     if (loader == null && RecipeType.Container.valueOf(typeID) instanceof RecipeLoader<?> recipeLoader) {

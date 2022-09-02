@@ -45,8 +45,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.stream.Collectors;
 
 public class LocalStorageLoader extends ResourceLoader {
 
@@ -89,7 +87,7 @@ public class LocalStorageLoader extends ResourceLoader {
      * Gets the file at the specific path from the {@link NamespacedKey} and sub-folder.
      *
      * @param namespacedKey The NamespacedKey for the path.
-     * @param typeFolder The sub-folder of the path. Like {@link #ITEMS_FOLDER} or {@link #RECIPES_FOLDER}.
+     * @param typeFolder    The sub-folder of the path. Like {@link #ITEMS_FOLDER} or {@link #RECIPES_FOLDER}.
      * @return The File at the specific path.
      */
     private File getFileAt(NamespacedKey namespacedKey, String typeFolder) {
@@ -100,7 +98,7 @@ public class LocalStorageLoader extends ResourceLoader {
      * Gets the NamespacedKey from the namespace and path.
      *
      * @param namespace The namespace in the data folder.
-     * @param path The rest of the path.
+     * @param path      The rest of the path.
      * @return The NamespacedKey from the namespace and path.
      */
     private NamespacedKey keyFromFile(String namespace, Path path) {
@@ -162,7 +160,7 @@ public class LocalStorageLoader extends ResourceLoader {
                 if (file.getParentFile().exists() || file.getParentFile().mkdirs()) {
                     try {
                         if (file.exists() || file.createNewFile()) {
-                            JacksonUtil.getObjectWriter(CustomCrafting.inst().getConfigHandler().getConfig().isPrettyPrinting()).writeValue(file, item);
+                            JacksonUtil.getObjectWriter(customCrafting.getConfigHandler().getConfig().isPrettyPrinting()).writeValue(file, item);
                             return true;
                         }
                     } catch (IOException e) {
@@ -175,28 +173,19 @@ public class LocalStorageLoader extends ResourceLoader {
     }
 
     @Override
-    public boolean delete(CustomRecipe<?> recipe) {
+    public boolean delete(CustomRecipe<?> recipe) throws IOException {
         File file = getFileAt(recipe.getNamespacedKey(), recipe.getRecipeType().getId());
-        System.gc();
-        if (file.delete()) {
-            return true;
-        } else {
-            file.deleteOnExit();
-        }
-        return false;
+        Files.delete(file.toPath());
+        return true;
     }
 
     @Override
-    public boolean delete(CustomItem item) {
-        System.gc();
+    public boolean delete(CustomItem item) throws IOException {
         var key = item.getNamespacedKey();
         if (key != null) {
             var file = getFileAt(key, ITEMS_FOLDER);
-            if (file.delete()) {
-                return true;
-            } else {
-                file.deleteOnExit();
-            }
+            Files.delete(file.toPath());
+            return true;
         }
         return false;
     }
@@ -222,6 +211,7 @@ public class LocalStorageLoader extends ResourceLoader {
                 if (isReplaceData() || !customCrafting.getRegistries().getRecipes().has(namespacedKey)) {
                     try {
                         injectableValues.addValue("key", namespacedKey);
+                        injectableValues.addValue("customcrafting", customCrafting);
                         customCrafting.getRegistries().getRecipes().register(objectMapper.reader(injectableValues).readValue(file.toFile(), CustomRecipe.class));
                         loaded.add(namespacedKey);
                     } catch (IOException e) {
@@ -301,7 +291,8 @@ public class LocalStorageLoader extends ResourceLoader {
                     try {
                         customCrafting.getRegistries().getRecipes().register(loader.getInstance(namespacedKey, objectMapper.readTree(file)));
                         loaded.add(namespacedKey);
-                    } catch (IOException | InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+                    } catch (IOException | InstantiationException | InvocationTargetException | NoSuchMethodException |
+                             IllegalAccessException e) {
                         ChatUtils.sendRecipeItemLoadingError("[LOCAL] ", namespacedKey.getNamespace(), namespacedKey.getKey(), e);
                         skippedError.add(namespacedKey);
                     }
@@ -312,7 +303,7 @@ public class LocalStorageLoader extends ResourceLoader {
         }
 
         protected String[] getOldTypeFolders(String namespace) {
-            return  new File(DATA_FOLDER + "/" + namespace).list((dir1, name) -> !name.equals(ITEMS_FOLDER) && !name.equals(RECIPES_FOLDER));
+            return new File(DATA_FOLDER + "/" + namespace).list((dir1, name) -> !name.equals(ITEMS_FOLDER) && !name.equals(RECIPES_FOLDER));
         }
 
     }
@@ -320,7 +311,7 @@ public class LocalStorageLoader extends ResourceLoader {
     /**
      * Used to load data & cache the loaded, skipped errors & already existing keys.
      */
-    private abstract class DataLoader {
+    private abstract static class DataLoader {
 
         protected List<NamespacedKey> loaded;
         protected List<NamespacedKey> skippedError;

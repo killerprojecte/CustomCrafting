@@ -20,25 +20,43 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.wolfyscript.customcrafting.utils.other_plugins;
+package me.wolfyscript.customcrafting.compatibility;
 
 import me.wolfyscript.customcrafting.CustomCrafting;
+import me.wolfyscript.customcrafting.compatibility.protocollib.ProtocolLib;
 import me.wolfyscript.customcrafting.placeholderapi.PlaceHolder;
 import me.wolfyscript.utilities.api.WolfyUtilities;
+import me.wolfyscript.utilities.util.version.WUVersion;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
-public class OtherPlugins {
+public class PluginCompatibility {
 
     private final CustomCrafting plugin;
 
     private ProtocolLib protocolLib = null;
 
-    public OtherPlugins(CustomCrafting plugin) {
+    public PluginCompatibility(CustomCrafting plugin) {
         this.plugin = plugin;
     }
 
     public void init() {
-        if (Bukkit.getPluginManager().getPlugin("ProtocolLib") != null) {
+        Plugin protocolLibPlugin = Bukkit.getPluginManager().getPlugin("ProtocolLib");
+        if (protocolLibPlugin != null) {
+            String verString = protocolLibPlugin.getDescription().getVersion();
+            WUVersion version = WUVersion.parse(verString);
+            if (version.getMajor() <= 4) {
+                plugin.getLogger().severe("");
+                plugin.getLogger().severe("[!] ------------------- [Attention!] ------------------- [!]");
+                plugin.getLogger().severe("Running Incompatible ProtocolLib version!");
+                plugin.getLogger().severe("Please update to the latest version of ProtocolLib!");
+                plugin.getLogger().severe("https://ci.dmulloy2.net/job/ProtocolLib/lastSuccessfulBuild/");
+                plugin.getLogger().severe("You are running " + verString + " !");
+                plugin.getLogger().severe("Minimum requirement is at least 5.0.0-SNAPSHOT !");
+                plugin.getLogger().severe("[!] ------------------- [Attention!] ------------------- [!]");
+                plugin.getLogger().severe("");
+                return;
+            }
             plugin.getLogger().info("Detected ProtocolLib... initiating additional features.");
             this.protocolLib = new ProtocolLib(plugin);
         }

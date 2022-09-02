@@ -42,6 +42,14 @@ public class MainConfig extends YamlConfiguration {
     public void init() {
     }
 
+    public boolean isGUIDrawBackground() {
+        return getBoolean("gui.draw_background", true);
+    }
+
+    public void setGUIDrawBackground(boolean drawBackground) {
+        set("gui.draw_background", drawBackground);
+    }
+
     public List<String> getCustomCraftingAlias() {
         return getStringList("commands.alias");
     }
@@ -80,6 +88,14 @@ public class MainConfig extends YamlConfiguration {
 
     public void setResetRecipeBook(boolean reset) {
         set("recipe_book.reset", reset);
+    }
+
+    public boolean isRecipeBookKeepLastOpen() {
+        return getBoolean("recipe_book.keep_last_open");
+    }
+
+    public void setRecipeBookKeepLastOpen(boolean keepLastOpen) {
+        set("recipe_book.keep_last_open", keepLastOpen);
     }
 
     public boolean isAdvancedWorkbenchEnabled() {

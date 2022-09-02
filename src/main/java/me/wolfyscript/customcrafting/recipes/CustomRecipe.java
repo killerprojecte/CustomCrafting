@@ -22,6 +22,14 @@
 
 package me.wolfyscript.customcrafting.recipes;
 
+import com.google.common.base.Preconditions;
+import me.wolfyscript.customcrafting.CustomCrafting;
+import me.wolfyscript.customcrafting.data.CCCache;
+import me.wolfyscript.customcrafting.handlers.ResourceLoader;
+import me.wolfyscript.customcrafting.recipes.conditions.Conditions;
+import me.wolfyscript.customcrafting.recipes.items.Ingredient;
+import me.wolfyscript.customcrafting.recipes.items.Result;
+import me.wolfyscript.customcrafting.utils.ItemLoader;
 import me.wolfyscript.customcrafting.utils.NamespacedKeyUtils;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JacksonInject;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonAlias;
@@ -39,14 +47,8 @@ import me.wolfyscript.lib.com.fasterxml.jackson.databind.ObjectMapper;
 import me.wolfyscript.lib.com.fasterxml.jackson.databind.SerializerProvider;
 import me.wolfyscript.lib.com.fasterxml.jackson.databind.annotation.JsonTypeIdResolver;
 import me.wolfyscript.lib.com.fasterxml.jackson.databind.annotation.JsonTypeResolver;
-import com.google.common.base.Preconditions;
-import me.wolfyscript.customcrafting.CustomCrafting;
-import me.wolfyscript.customcrafting.data.CCCache;
-import me.wolfyscript.customcrafting.handlers.ResourceLoader;
-import me.wolfyscript.customcrafting.recipes.conditions.Conditions;
-import me.wolfyscript.customcrafting.recipes.items.Ingredient;
-import me.wolfyscript.customcrafting.recipes.items.Result;
-import me.wolfyscript.customcrafting.utils.ItemLoader;
+import me.wolfyscript.lib.net.kyori.adventure.text.Component;
+import me.wolfyscript.lib.net.kyori.adventure.text.format.NamedTextColor;
 import me.wolfyscript.utilities.api.WolfyUtilities;
 import me.wolfyscript.utilities.api.inventory.custom_items.CustomItem;
 import me.wolfyscript.utilities.api.inventory.gui.GuiCluster;
@@ -72,7 +74,7 @@ import java.util.Objects;
 @JsonTypeIdResolver(RecipeTypeIdResolver.class)
 @JsonTypeInfo(use = JsonTypeInfo.Id.CUSTOM, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "@type")
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-@JsonPropertyOrder(value = { "@type", "group", "hidden", "vanillaBook", "priority", "checkNBT", "conditions" })
+@JsonPropertyOrder(value = {"@type", "group", "hidden", "vanillaBook", "priority", "checkNBT", "conditions"})
 public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
 
     protected static final String KEY_RESULT = "result";
@@ -84,12 +86,19 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     protected static final String KEY_HIDDEN = "hidden";
     protected static final String ERROR_MSG_KEY = "Not a valid key! The key cannot be null!";
 
-    @JsonProperty("@type") protected RecipeType<C> type;
-    @JsonIgnore protected final NamespacedKey namespacedKey;
-    @JsonIgnore protected final WolfyUtilities api;
-    @JsonIgnore protected final ObjectMapper mapper;
+    @JsonProperty("@type")
+    protected RecipeType<C> type;
+    @JsonIgnore
+    protected final NamespacedKey namespacedKey;
+    @JsonIgnore
+    protected final WolfyUtilities api;
+    @JsonIgnore
+    protected final CustomCrafting customCrafting;
+    @JsonIgnore
+    protected final ObjectMapper mapper;
 
-    @JsonAlias("checkNBT") protected boolean checkAllNBT;
+    @JsonAlias("checkNBT")
+    protected boolean checkAllNBT;
     protected boolean hidden;
     protected boolean vanillaBook;
     protected RecipePriority priority;
@@ -98,50 +107,51 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     protected Result result;
 
     /**
-     *
-     * @deprecated Used only for deserializing recipes from old json files.
      * @param namespacedKey The namespaced key of the recipe.
-     * @param node The json node read from the recipe file.
+     * @param node          The json node read from the recipe file.
+     * @deprecated Used only for deserializing recipes from old json files.
      */
     protected CustomRecipe(NamespacedKey namespacedKey, JsonNode node) {
         this.type = RecipeType.valueOfRecipe(this);
         this.namespacedKey = Objects.requireNonNull(namespacedKey, ERROR_MSG_KEY);
         this.mapper = JacksonUtil.getObjectMapper();
-        this.api = CustomCrafting.inst().getApi();
+        this.customCrafting = CustomCrafting.inst(); //TODO: Dependency Injection
+        this.api = this.customCrafting.getApi();
         //Get fields from JsonNode
         this.group = node.path(KEY_GROUP).asText("");
         this.priority = mapper.convertValue(node.path(KEY_PRIORITY).asText("NORMAL"), RecipePriority.class);
         this.checkAllNBT = node.path(KEY_EXACT_META).asBoolean(false);
         this.conditions = mapper.convertValue(node.path(KEY_CONDITIONS), Conditions.class);
         if (this.conditions == null) {
-            this.conditions = new Conditions();
+            this.conditions = new Conditions(customCrafting);
         }
         this.vanillaBook = node.path(KEY_VANILLA_BOOK).asBoolean(true);
         this.hidden = node.path(KEY_HIDDEN).asBoolean(false);
         //Sets the result of the recipe if one exists in the config
         if (node.has(KEY_RESULT) && !(this instanceof CustomRecipeStonecutter)) {
-            setResult(ItemLoader.loadResult(node.path(KEY_RESULT)));
+            setResult(ItemLoader.loadResult(node.path(KEY_RESULT), customCrafting));
         }
     }
 
     @JsonCreator
-    protected CustomRecipe(@JsonProperty("key") @JacksonInject("key") NamespacedKey key) {
-        this(key, (RecipeType<C>) null);
+    protected CustomRecipe(@JsonProperty("key") @JacksonInject("key") NamespacedKey key, CustomCrafting customCrafting) {
+        this(key, customCrafting, null);
     }
 
-    protected CustomRecipe(NamespacedKey key, RecipeType<C> type) {
+    protected CustomRecipe(NamespacedKey key, CustomCrafting customCrafting, RecipeType<C> type) {
         this.type = type == null ? RecipeType.valueOfRecipe(this) : type;
         Preconditions.checkArgument(this.type != null, "Error constructing Recipe Object \"" + getClass().getName() + "\": Missing RecipeType!");
         this.namespacedKey = Objects.requireNonNull(key, ERROR_MSG_KEY);
         this.mapper = JacksonUtil.getObjectMapper();
-        this.api = CustomCrafting.inst().getApi();
+        this.customCrafting = customCrafting; //TODO: Dependency Injection
+        this.api = customCrafting.getApi();
         this.result = new Result();
 
         this.group = "";
         this.priority = RecipePriority.NORMAL;
         this.checkAllNBT = false;
         this.vanillaBook = true;
-        this.conditions = new Conditions();
+        this.conditions = new Conditions(customCrafting);
         this.hidden = false;
     }
 
@@ -154,7 +164,8 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     protected CustomRecipe(CustomRecipe<C> customRecipe) {
         this.type = customRecipe.type;
         this.mapper = JacksonUtil.getObjectMapper();
-        this.api = CustomCrafting.inst().getApi();
+        this.customCrafting = customRecipe.customCrafting;
+        this.api = customCrafting.getApi();
         this.namespacedKey = Objects.requireNonNull(customRecipe.namespacedKey, ERROR_MSG_KEY);
 
         this.vanillaBook = customRecipe.vanillaBook;
@@ -248,7 +259,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
 
     @JsonSetter("result")
     protected void setResult(JsonNode node) {
-        setResult(ItemLoader.loadResult(node));
+        setResult(ItemLoader.loadResult(node, this.customCrafting));
     }
 
     @JsonIgnore
@@ -290,7 +301,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
 
     @JsonIgnore
     public boolean isDisabled() {
-        return CustomCrafting.inst().getDisableRecipesHandler().getRecipes().contains(getNamespacedKey());
+        return customCrafting.getDisableRecipesHandler().getRecipes().contains(getNamespacedKey());
     }
 
     public boolean findResultItem(ItemStack result) {
@@ -302,7 +313,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
      * It can also send a confirmation message to the player if the player is not null.
      */
     public boolean save(@Nullable Player player) {
-        return save(CustomCrafting.inst().getDataHandler().getActiveLoader(), player);
+        return save(customCrafting.getDataHandler().getActiveLoader(), player);
     }
 
     /**
@@ -333,12 +344,17 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     }
 
     public boolean delete(@Nullable Player player) {
-        Bukkit.getScheduler().runTask(CustomCrafting.inst(), () -> CustomCrafting.inst().getRegistries().getRecipes().remove(getNamespacedKey()));
-        if (CustomCrafting.inst().getDataHandler().getActiveLoader().delete(this)) {
-            getAPI().getChat().sendMessage(player, ChatColor.GREEN + "Recipe deleted!");
-            return true;
+        Bukkit.getScheduler().runTask(customCrafting, () -> customCrafting.getRegistries().getRecipes().remove(getNamespacedKey()));
+        try {
+            if (customCrafting.getDataHandler().getActiveLoader().delete(this)) {
+                getAPI().getChat().sendMessage(player, Component.text("Recipe deleted!", NamedTextColor.GREEN));
+                return true;
+            }
+        } catch (IOException e) {
+            getAPI().getChat().sendMessage(player, Component.text("Couldn't delete recipe file! " + e.getMessage(), NamedTextColor.RED));
+            getAPI().getChat().sendMessage(player, Component.text("For full error please see logs!", NamedTextColor.RED));
+            e.printStackTrace();
         }
-        getAPI().getChat().sendMessage(player, ChatColor.RED + "Couldn't delete recipe file!");
         return false;
     }
 
@@ -353,7 +369,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     /**
      * Writes the recipe to json using the specified generator and provider.
      *
-     * @param gen The JsonGenerator
+     * @param gen      The JsonGenerator
      * @param provider The SerializerProvider
      * @throws IOException Any exception caused when writing it to json.
      * @deprecated This is no longer used. Instead, the recipe object can be written to json directly.
