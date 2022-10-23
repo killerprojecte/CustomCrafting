@@ -32,7 +32,6 @@ import me.wolfyscript.customcrafting.recipes.items.Result;
 import me.wolfyscript.customcrafting.utils.ItemLoader;
 import me.wolfyscript.customcrafting.utils.NamespacedKeyUtils;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JacksonInject;
-import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonAlias;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonAutoDetect;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonCreator;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonGetter;
@@ -80,6 +79,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     protected static final String KEY_RESULT = "result";
     protected static final String KEY_GROUP = "group";
     protected static final String KEY_VANILLA_BOOK = "vanillaBook";
+    protected static final String KEY_AUTO_DISCOVER = "autoDiscover";
     protected static final String KEY_PRIORITY = "priority";
     protected static final String KEY_EXACT_META = "exactItemMeta";
     protected static final String KEY_CONDITIONS = "conditions";
@@ -97,10 +97,11 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     @JsonIgnore
     protected final ObjectMapper mapper;
 
-    @JsonAlias("checkNBT")
+    @JsonIgnore
     protected boolean checkAllNBT;
     protected boolean hidden;
     protected boolean vanillaBook;
+    protected boolean autoDiscover;
     protected RecipePriority priority;
     protected Conditions conditions;
     protected String group;
@@ -114,8 +115,8 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
     protected CustomRecipe(NamespacedKey namespacedKey, JsonNode node) {
         this.type = RecipeType.valueOfRecipe(this);
         this.namespacedKey = Objects.requireNonNull(namespacedKey, ERROR_MSG_KEY);
-        this.mapper = JacksonUtil.getObjectMapper();
         this.customCrafting = CustomCrafting.inst(); //TODO: Dependency Injection
+        this.mapper = customCrafting.getApi().getJacksonMapperUtil().getGlobalMapper();
         this.api = this.customCrafting.getApi();
         //Get fields from JsonNode
         this.group = node.path(KEY_GROUP).asText("");
@@ -126,6 +127,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
             this.conditions = new Conditions(customCrafting);
         }
         this.vanillaBook = node.path(KEY_VANILLA_BOOK).asBoolean(true);
+        this.autoDiscover = node.path(KEY_VANILLA_BOOK).asBoolean(true);
         this.hidden = node.path(KEY_HIDDEN).asBoolean(false);
         //Sets the result of the recipe if one exists in the config
         if (node.has(KEY_RESULT) && !(this instanceof CustomRecipeStonecutter)) {
@@ -142,8 +144,8 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
         this.type = type == null ? RecipeType.valueOfRecipe(this) : type;
         Preconditions.checkArgument(this.type != null, "Error constructing Recipe Object \"" + getClass().getName() + "\": Missing RecipeType!");
         this.namespacedKey = Objects.requireNonNull(key, ERROR_MSG_KEY);
-        this.mapper = JacksonUtil.getObjectMapper();
         this.customCrafting = customCrafting; //TODO: Dependency Injection
+        this.mapper = customCrafting.getApi().getJacksonMapperUtil().getGlobalMapper();
         this.api = customCrafting.getApi();
         this.result = new Result();
 
@@ -151,6 +153,7 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
         this.priority = RecipePriority.NORMAL;
         this.checkAllNBT = false;
         this.vanillaBook = true;
+        this.autoDiscover = true;
         this.conditions = new Conditions(customCrafting);
         this.hidden = false;
     }
@@ -163,12 +166,13 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
      */
     protected CustomRecipe(CustomRecipe<C> customRecipe) {
         this.type = customRecipe.type;
-        this.mapper = JacksonUtil.getObjectMapper();
         this.customCrafting = customRecipe.customCrafting;
+        this.mapper = customCrafting.getApi().getJacksonMapperUtil().getGlobalMapper();
         this.api = customCrafting.getApi();
         this.namespacedKey = Objects.requireNonNull(customRecipe.namespacedKey, ERROR_MSG_KEY);
 
         this.vanillaBook = customRecipe.vanillaBook;
+        this.autoDiscover = customRecipe.autoDiscover;
         this.group = customRecipe.group;
         this.priority = customRecipe.priority;
         this.checkAllNBT = customRecipe.checkAllNBT;
@@ -213,10 +217,12 @@ public abstract class CustomRecipe<C extends CustomRecipe<C>> implements Keyed {
         this.checkAllNBT = exactMeta;
     }
 
+    @JsonSetter("checkNBT")
     public void setCheckNBT(boolean checkAllNBT) {
         this.checkAllNBT = checkAllNBT;
     }
 
+    @JsonGetter("checkNBT")
     public boolean isCheckNBT() {
         return checkAllNBT;
     }

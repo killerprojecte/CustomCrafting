@@ -22,6 +22,9 @@
 
 package me.wolfyscript.customcrafting.recipes;
 
+import com.wolfyscript.utilities.bukkit.nms.item.crafting.FunctionalRecipeBuilderShaped;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 import me.wolfyscript.customcrafting.CustomCrafting;
 import me.wolfyscript.customcrafting.recipes.settings.AdvancedRecipeSettings;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JacksonInject;
@@ -39,18 +42,18 @@ public class CraftingRecipeShaped extends AbstractRecipeShaped<CraftingRecipeSha
     }
 
     @JsonCreator
-    public CraftingRecipeShaped(@JsonProperty("key") @JacksonInject("key") NamespacedKey key, @JacksonInject("customcrafting") CustomCrafting customCrafting, @JsonProperty("symmetry") Symmetry symmetry, @JsonProperty("shape") String[] shape) {
-        super(key, customCrafting, symmetry, shape, 3, new AdvancedRecipeSettings());
+    public CraftingRecipeShaped(@JsonProperty("key") @JacksonInject("key") NamespacedKey key, @JacksonInject("customcrafting") CustomCrafting customCrafting, @JsonProperty("symmetry") Symmetry symmetry, @JsonProperty(value = "keepShapeAsIs") boolean keepShapeAsIs, @JsonProperty("shape") String[] shape) {
+        super(key, customCrafting, symmetry, keepShapeAsIs, shape, 3, new AdvancedRecipeSettings());
     }
 
     @Deprecated
     public CraftingRecipeShaped(NamespacedKey key, Symmetry symmetry, String[] shape) {
-        this(key, CustomCrafting.inst(), symmetry, shape);
+        this(key, CustomCrafting.inst(), symmetry, false, shape);
     }
 
     @Deprecated
     public CraftingRecipeShaped(NamespacedKey key) {
-        super(key, CustomCrafting.inst(), new Symmetry(), 3, new AdvancedRecipeSettings());
+        super(key, CustomCrafting.inst(), new Symmetry(), false, 3, new AdvancedRecipeSettings());
     }
 
     private CraftingRecipeShaped(CraftingRecipeShaped craftingRecipe) {
@@ -65,11 +68,18 @@ public class CraftingRecipeShaped extends AbstractRecipeShaped<CraftingRecipeSha
     @Override
     public org.bukkit.inventory.ShapedRecipe getVanillaRecipe() {
         if (!getResult().isEmpty() && !ingredients.isEmpty()) {
-            var recipe = new org.bukkit.inventory.ShapedRecipe(new org.bukkit.NamespacedKey(getNamespacedKey().getNamespace(), getNamespacedKey().getKey()), getResult().getItemStack());
-            recipe.shape(getShape());
-            mappedIngredients.forEach((character, items) -> recipe.setIngredient(character, new RecipeChoice.ExactChoice(items.getChoices().stream().map(CustomItem::getItemStack).distinct().toList())));
-            recipe.setGroup(getGroup());
-            return recipe;
+            if (customCrafting.getConfigHandler().getConfig().isNMSBasedCrafting()) {
+                FunctionalRecipeBuilderShaped builder = new FunctionalRecipeBuilderShaped(getNamespacedKey(), getResult().getItemStack(), getInternalShape().getWidth(), getInternalShape().getHeight());
+                applySettingsToFunctionalRecipe(builder);
+                builder.setChoices(getIngredients().stream().map(ingredient -> ingredient.isEmpty() ? null : new RecipeChoice.ExactChoice(ingredient.getBukkitChoices())).collect(Collectors.toCollection(ArrayList::new)));
+                builder.createAndRegister();
+            } else {
+                var recipe = new org.bukkit.inventory.ShapedRecipe(new org.bukkit.NamespacedKey(getNamespacedKey().getNamespace(), getNamespacedKey().getKey()), getResult().getItemStack());
+                recipe.shape(getShape());
+                mappedIngredients.forEach((character, items) -> recipe.setIngredient(character, new RecipeChoice.ExactChoice(items.getChoices().stream().map(CustomItem::getItemStack).distinct().toList())));
+                recipe.setGroup(getGroup());
+                return recipe;
+            }
         }
         return null;
     }
@@ -82,5 +92,15 @@ public class CraftingRecipeShaped extends AbstractRecipeShaped<CraftingRecipeSha
     @Override
     public void setVisibleVanillaBook(boolean vanillaBook) {
         this.vanillaBook = vanillaBook;
+    }
+
+    @Override
+    public boolean isAutoDiscover() {
+        return autoDiscover;
+    }
+
+    @Override
+    public void setAutoDiscover(boolean autoDiscover) {
+        this.autoDiscover = autoDiscover;
     }
 }

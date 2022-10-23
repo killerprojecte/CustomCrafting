@@ -22,8 +22,14 @@
 
 package me.wolfyscript.customcrafting;
 
+import com.wolfyscript.jackson.dataformat.hocon.HoconFactory;
+import com.wolfyscript.jackson.dataformat.hocon.HoconGenerator;
+import com.wolfyscript.jackson.dataformat.hocon.HoconMapper;
+import java.io.IOException;
 import me.wolfyscript.customcrafting.commands.CommandCC;
 import me.wolfyscript.customcrafting.commands.CommandRecipe;
+import me.wolfyscript.customcrafting.compatibility.PluginCompatibility;
+import me.wolfyscript.customcrafting.configs.MainConfig;
 import me.wolfyscript.customcrafting.configs.custom_data.CauldronData;
 import me.wolfyscript.customcrafting.configs.custom_data.EliteWorkbenchData;
 import me.wolfyscript.customcrafting.configs.custom_data.RecipeBookData;
@@ -68,13 +74,13 @@ import me.wolfyscript.customcrafting.handlers.DisableRecipesHandler;
 import me.wolfyscript.customcrafting.listeners.AnvilListener;
 import me.wolfyscript.customcrafting.listeners.BrewingStandListener;
 import me.wolfyscript.customcrafting.listeners.CauldronListener;
-import me.wolfyscript.customcrafting.listeners.CraftListener;
 import me.wolfyscript.customcrafting.listeners.EliteWorkbenchListener;
 import me.wolfyscript.customcrafting.listeners.FurnaceListener;
 import me.wolfyscript.customcrafting.listeners.GrindStoneListener;
 import me.wolfyscript.customcrafting.listeners.PlayerListener;
 import me.wolfyscript.customcrafting.listeners.RecipeBookListener;
 import me.wolfyscript.customcrafting.listeners.SmithingListener;
+import me.wolfyscript.customcrafting.listeners.crafting.CraftListener;
 import me.wolfyscript.customcrafting.network.NetworkHandler;
 import me.wolfyscript.customcrafting.recipes.RecipeType;
 import me.wolfyscript.customcrafting.recipes.anvil.RepairTask;
@@ -114,7 +120,6 @@ import me.wolfyscript.customcrafting.utils.CraftManager;
 import me.wolfyscript.customcrafting.utils.NamespacedKeyUtils;
 import me.wolfyscript.customcrafting.utils.UpdateChecker;
 import me.wolfyscript.customcrafting.utils.cooking.CookingManager;
-import me.wolfyscript.customcrafting.compatibility.PluginCompatibility;
 import me.wolfyscript.lib.com.fasterxml.jackson.annotation.JsonIncludeProperties;
 import me.wolfyscript.lib.com.fasterxml.jackson.databind.SerializationFeature;
 import me.wolfyscript.lib.net.kyori.adventure.text.Component;
@@ -124,7 +129,6 @@ import me.wolfyscript.utilities.api.inventory.gui.InventoryAPI;
 import me.wolfyscript.utilities.util.NamespacedKey;
 import me.wolfyscript.utilities.util.Reflection;
 import me.wolfyscript.utilities.util.entity.CustomPlayerData;
-import me.wolfyscript.utilities.util.json.jackson.JacksonUtil;
 import me.wolfyscript.utilities.util.json.jackson.KeyedTypeIdResolver;
 import me.wolfyscript.utilities.util.version.ServerVersion;
 import me.wolfyscript.utilities.util.version.WUVersion;
@@ -132,10 +136,9 @@ import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.io.IOException;
 
 @JsonIncludeProperties(/* Do not include properties because it is injected and there is no need to serialize this class! */)
 public class CustomCrafting extends JavaPlugin {
@@ -186,8 +189,17 @@ public class CustomCrafting extends JavaPlugin {
         this.version = WUVersion.parse(currentVersion.split("-")[0]);
         this.pluginCompatibility = new PluginCompatibility(this);
         isPaper = WolfyUtilities.hasClass("com.destroystokyo.paper.utils.PaperPluginLogger");
+        if (!isPaper) {
+            getLogger().warning("Paper not detected! Not using performance improvements.");
+        }
         api = WolfyUtilCore.getInstance().getAPI(this, false);
-        JacksonUtil.getObjectMapper().disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+
+        HoconMapper mapper = new HoconMapper(new HoconFactory()
+                .disable(HoconGenerator.Feature.ROOT_OBJECT_BRACKETS)
+                .disable(HoconGenerator.Feature.ALWAYS_QUOTE_STRINGS)
+                .disable(HoconGenerator.Feature.OBJECT_VALUE_SEPARATOR));
+        mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+        api.getJacksonMapperUtil().setGlobalMapper(api.getCore().applyWolfyUtilsJsonMapperModules(mapper));
 
         this.registries = new CCRegistries(this, api.getCore());
 
@@ -226,6 +238,11 @@ public class CustomCrafting extends JavaPlugin {
         getLogger().info("WolfyUtils API: v" + ServerVersion.getWUVersion().getVersion());
         getLogger().info("CustomCrafting: v" + getVersion().getVersion());
         getLogger().info("Environment   : " + WolfyUtilities.getENVIRONMENT());
+
+        api.getCore().applyWolfyUtilsJsonMapperModules(api.getJacksonMapperUtil().getGlobalMapper());
+
+        ConfigurationSerialization.registerClass(MainConfig.DatabaseSettings.class);
+        ConfigurationSerialization.registerClass(MainConfig.LocalStorageSettings.class);
 
         getLogger().info("Registering CustomItem Data");
         var customItemData = api.getRegistries().getCustomItemData();
@@ -321,6 +338,7 @@ public class CustomCrafting extends JavaPlugin {
         this.pluginCompatibility.init();
         this.dataHandler = new DataHandler(this);
         this.disableRecipesHandler = new DisableRecipesHandler(this);
+
         registerListeners();
         registerCommands();
         registerInventories();

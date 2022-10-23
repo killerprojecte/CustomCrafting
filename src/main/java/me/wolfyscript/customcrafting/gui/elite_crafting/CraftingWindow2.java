@@ -20,29 +20,30 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package me.wolfyscript.customcrafting.gui.main_gui;
+package me.wolfyscript.customcrafting.gui.elite_crafting;
 
+import me.wolfyscript.customcrafting.CustomCrafting;
 import me.wolfyscript.customcrafting.data.CCCache;
-import me.wolfyscript.customcrafting.gui.Setting;
-import me.wolfyscript.customcrafting.recipes.RecipeType;
-import me.wolfyscript.utilities.api.inventory.gui.GuiMenuComponent;
-import me.wolfyscript.utilities.api.inventory.gui.button.buttons.ActionButton;
-import me.wolfyscript.utilities.util.NamespacedKey;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
+import me.wolfyscript.utilities.api.inventory.gui.GuiCluster;
+import me.wolfyscript.utilities.api.inventory.gui.GuiUpdate;
 
-class ButtonRecipeType extends ActionButton<CCCache> {
+public class CraftingWindow2 extends CraftingWindow {
 
-    ButtonRecipeType(String key, RecipeType<?> recipeType, ItemStack icon) {
-        super(key, icon, (cache, guiHandler, player, inventory, slot, event) -> {
-            cache.getRecipeCreatorCache().setRecipeType(recipeType);
-            cache.setSetting(Setting.RECIPE_CREATOR);
-            guiHandler.openWindow(new NamespacedKey("recipe_creator", recipeType.getCreatorID()));
-            return true;
-        });
+    public CraftingWindow2(GuiCluster<CCCache> cluster, CustomCrafting customCrafting) {
+        super(cluster, "crafting_grid2", 18, customCrafting, 2);
     }
 
-    ButtonRecipeType(String key, RecipeType<?> recipeType, Material icon) {
-        this(key, recipeType, new ItemStack(icon));
+    @Override
+    public void onUpdateSync(GuiUpdate<CCCache> event) {
+        super.onUpdateSync(event);
+
+        event.setButton(0, EliteCraftingCluster.RECIPE_BOOK);
+        event.setButton(7, RESULT);
     }
+
+    @Override
+    public int getGridX() {
+        return 3;
+    }
+
 }
